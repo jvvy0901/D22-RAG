@@ -1,0 +1,10 @@
+# r1_alone.py: OpenAI 호출 / .env 읽기
+openai>=3.49
+python-dotenv>=1.2
+
+# rag.py: 문서 자르기 / 토큰 수 세기
+langchain-text-splitters>=1.1
+tiktoken>=0.14
+
+# app.py: 웹 화면
+flask>=3.0

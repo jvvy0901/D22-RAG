@@ -1,0 +1,25 @@
+# 비밀 키 (절대 올리지 않기)
+.env
+.env.*
+!.env.example
+
+# 다시 만들 수 있는 결과물
+index.json
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# OS / 에디터
+.DS_Store
+.idea/
+.vscode/
+
+# Claude Code 개인 설정
+.claude/settings.local.json
