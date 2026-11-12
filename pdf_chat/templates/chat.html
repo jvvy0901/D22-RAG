@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PDF 근거 챗봇</title>
+<style>
+  :root {
+    --ink: #1d2742; --paper: #f2f5f3; --card: #ffffff; --indigo: #2c3e78;
+    --celadon: #6fae9f; --line: #d3dcd7; --muted: #55607a; --warn: #9a3b1f;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); line-height: 1.65;
+         font-family: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 1.4rem; margin: 0 0 4px; }
+  h2 { font-size: 1.05rem; margin: 28px 0 10px; }
+  .sub { margin: 0 0 20px; color: var(--muted); font-size: .95rem; }
+  form { display: grid; gap: 10px; }
+  label { font-weight: 600; }
+  textarea, input[type=file] { width: 100%; padding: 12px; font: inherit; color: inherit; background: #fff;
+             border: 1.5px solid var(--indigo); border-radius: 6px; }
+  textarea { min-height: 96px; resize: vertical; }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .count { font-size: .85rem; color: var(--muted); }
+  .count.over { color: var(--warn); font-weight: 700; }
+  button, .link-btn { min-height: 44px; padding: 0 22px; font: inherit; font-weight: 700; cursor: pointer;
+           color: #fff; background: var(--indigo); border: 0; border-radius: 6px;
+           display: inline-flex; align-items: center; text-decoration: none; }
+  button:hover, .link-btn:hover { background: #22305f; }
+  button:disabled { opacity: .7; cursor: wait; }
+  :focus-visible { outline: 3px solid var(--celadon); outline-offset: 2px; }
+  .notice { margin: 0 0 16px; padding: 12px 14px; border-radius: 6px; font-size: .95rem;
+            background: #fbece6; border: 1px solid #e3b7a6; color: var(--warn); }
+  .doc { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; margin: 0 0 16px;
+         padding: 10px 14px; background: var(--card); border: 1px solid var(--line);
+         border-left: 6px solid var(--celadon); border-radius: 6px; font-size: .92rem; }
+  .doc b { word-break: break-all; }
+  .answer { padding: 16px; background: var(--card); border: 1px solid var(--line);
+            border-radius: 6px; white-space: pre-wrap; }
+  .ticket { margin: 0 0 12px; background: var(--card); border: 1px solid var(--line);
+            border-left: 6px solid var(--celadon); border-radius: 6px; }
+  .ticket header { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline;
+                   padding: 10px 14px; border-bottom: 2px dashed var(--line); font-size: .92rem; }
+  .ticket .rank { font-weight: 800; }
+  .ticket .file { color: var(--muted); word-break: break-all; }
+  .ticket p { margin: 0; padding: 10px 14px 12px; font-size: .92rem; color: #36415d; }
+  .hint { margin: 0 0 12px; color: var(--muted); font-size: .85rem; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>PDF 근거 챗봇</h1>
+  <p class="sub">PDF 를 올리면, 그 문서 안의 내용만 근거로 질문에 답해요.</p>
+
+  {% if error %}<p class="notice" role="alert">{{ error }}</p>{% endif %}
+
+  {% if doc %}
+    <p class="doc"><b>{{ doc.name }}</b><span>{{ doc.pages }}쪽 · 조각 {{ doc.chunks }}개</span>
+      <a class="link-btn" href="{{ url_for('upload') }}">다른 PDF 올리기</a></p>
+
+    <form method="post" id="ask-form">
+      <label for="question">질문</label>
+      <textarea id="question" name="question" required>{{ question or "" }}</textarea>
+      <div class="row">
+        <span class="count" id="count" aria-live="polite">0 / {{ max_len }}자</span>
+        <button type="submit" id="submit">물어보기</button>
+      </div>
+    </form>
+
+    {% if result %}
+      <h2>답</h2>
+      <div class="answer">{{ result.answer }}</div>
+      <h2>찾아온 조각</h2>
+      <p class="hint">점수는 클수록 질문과 비슷해요.</p>
+      {% for c in result.hits %}
+        <article class="ticket">
+          <header>
+            <span class="rank">{{ c.rank }}위</span>
+            <span>점수 {{ c.score }}</span>
+            <span class="file">{{ c.source }} · p.{{ c.page }}</span>
+          </header>
+          <p>{{ c.head }}</p>
+        </article>
+      {% endfor %}
+    {% endif %}
+  {% else %}
+    <form method="post" enctype="multipart/form-data" id="up-form">
+      <label for="pdf">PDF 파일</label>
+      <input id="pdf" type="file" name="pdf" accept="application/pdf,.pdf" required>
+      <div class="row"><span class="count">20MB · 100쪽 이하</span>
+        <button type="submit" id="submit">PDF 올리기</button></div>
+    </form>
+  {% endif %}
+</main>
+
+<script>
+  const box = document.getElementById("question");
+  if (box) {
+    const count = document.getElementById("count"), MAX = {{ max_len }};
+    const update = () => { count.textContent = box.value.length + " / " + MAX + "자";
+                           count.classList.toggle("over", box.value.length > MAX); };
+    box.addEventListener("input", update); update();
+  }
+  const form = document.getElementById("ask-form") || document.getElementById("up-form");
+  if (form) form.addEventListener("submit", () => {
+    const b = document.getElementById("submit");
+    b.disabled = true;
+    b.textContent = box ? "물어보는 중…" : "PDF 올리는 중…";
+  });
+</script>
+</body>
+</html>

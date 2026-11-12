@@ -8,3 +8,8 @@ tiktoken>=0.14
 
 # app.py: 웹 화면
 flask>=3.0
+
+# pdf_chat/: PDF 챗봇 (LangChain)
+pypdf>=5.0
+langchain-core>=1.0
+langchain-openai>=1.0
